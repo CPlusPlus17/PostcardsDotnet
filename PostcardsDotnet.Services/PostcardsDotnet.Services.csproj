@@ -4,9 +4,11 @@
         <TargetFramework>net7.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <RootNamespace>PostcardDotnet.Services</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\PostcardsDotnet.Contracts\PostcardsDotnet.Contracts.csproj" />
       <ProjectReference Include="..\PostcardsDotnet.Common\PostcardsDotnet.Common.csproj" />
     </ItemGroup>
 

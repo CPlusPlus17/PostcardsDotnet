@@ -1,79 +1,35 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Web;
+using PostcardDotnet.Common;
+using PostcardDotnet.Contracts;
 
-namespace PostcardsDotnet;
+namespace PostcardDotnet.Services;
 
-public partial class SwissPostcardCreatorApi
+public sealed class SwissIdLoginService : ITokenService
 {
-    /// <summary>
-    /// App redirect uri
-    /// </summary>
-    private const string RedirectUri = "ch.post.pcc://auth/1016c75e-aa9c-493e-84b8-4eb3ba6177ef";
+    public async Task<IToken> GetToken(string username, string password)
+    {
+        return await LoginSwissId(username, password);
+    }
 
-    /// <summary>
-    /// User Agent to use for requests
-    /// </summary>
-    private const string UserAgent = "Mozilla/5.0 (Linux; Android 6.0.1; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/52.0.2743.98 Mobile Safari/537.36";
-
-    /// <summary>
-    /// PostCardApp client id
-    /// </summary>
-    private const string ClientId = "ae9b9894f8728ca78800942cda638155";
-
-    /// <summary>
-    /// PostCardApp client secret
-    /// </summary>
-    private const string ClientSecret = "89ff451ede545c3f408d792e8caaddf0";
-
-    /// <summary>
-    /// Regex to extract goto
-    /// </summary>
-    /// <returns></returns>
-    [GeneratedRegex("goto=(.*?)$")]
-    private static partial Regex GoToRegex();
-
-    /// <summary>
-    /// Regex to extraction action
-    /// </summary>
-    /// <returns></returns>
-    [GeneratedRegex("""
-                    action="([^"]+)"
-                    """)]
-    private static partial Regex FormUrlRegex();
-
-    /// <summary>
-    /// Regex to extract SAMLResponse value
-    /// </summary>
-    /// <returns></returns>
-    [GeneratedRegex("""
-                    name="SAMLResponse" value="([^"]+)"
-                    """)]
-    private static partial Regex SamlTokenRegex();
-
-    /// <summary>
-    /// Regex to extract RelayState value
-    /// </summary>
-    /// <returns></returns>
-    [GeneratedRegex("""
-                    name="RelayState" value="([^"]+)"
-                    """)]
-    private static partial Regex RelayStateRegex();
+    public async Task<IToken> RefreshToken()
+    {
+        throw new NotImplementedException();
+    }
 
     /// <summary>
     /// Login with swiss id
     /// </summary>
     /// <exception cref="NotImplementedException"></exception>
-    public static async Task<JsonObject> LoginSwissId(string username, string password)
+    private static async Task<IToken> LoginSwissId(string username, string password)
     {
         // Prepare client with cookie support and correct headers
-        var httpClientWithCookies = PrepareHttpClient(true);
-        var (codeVerifier, codeChallenge) = CreateRandomToken();
+        var httpClientWithCookies = SwissIdLoginHelper.PrepareHttpClient(true);
+        var (codeVerifier, codeChallenge) = SwissIdLoginHelper.CreateRandomToken();
 
         // PccWeb authorization - cookies
         await PccWebAuthorization(codeChallenge, httpClientWithCookies);
@@ -125,36 +81,19 @@ public partial class SwissPostcardCreatorApi
         var code = await PccWebOAuth(httpClientWithCookies, samlToken, relayState);
 
         // PccWeb token - getting access and refresh token
-        return await PccWebToken(code, codeVerifier);
-    }
+        var tokenObject = await PccWebToken(code, codeVerifier);
 
-    /// <summary>
-    /// Prepare a http client with disabled redirect and optional cookie support
-    /// </summary>
-    /// <param name="useCookies"></param>
-    /// <returns></returns>
-    private static HttpClient PrepareHttpClient(bool useCookies)
-    {
-        var handler = new HttpClientHandler()
+        return new SwissIdTokenRecord()
         {
-            // Do not redirect, we need to do this manually to extract data from redirect location
-            AllowAutoRedirect = false
+            AccessToken = tokenObject["access_token"]?.AsValue().ToString()
+                          ?? throw new("Missing access token attribute"),
+            RefreshToken = tokenObject["refresh_token"]?.AsValue().ToString()
+                           ?? throw new("Missing refresh token attribute"),
+            ExpiresInSeconds = tokenObject["expires_in"]?.AsValue().GetValue<int>()
+                               ?? throw new("Missing expires in attribute"),
+            ExpiresAt = DateTimeOffset.Now.AddSeconds(tokenObject["expires_in"]?.AsValue().GetValue<double?>()
+                                                      ?? throw new("Can't calculate expires at"))
         };
-
-        if (useCookies) handler.CookieContainer = new CookieContainer();
-
-        // Set user agent to simulate a mobile device
-        var httpClient = new HttpClient(handler)
-        {
-            DefaultRequestHeaders =
-            {
-                {
-                    "User-Agent", UserAgent
-                },
-            }
-        };
-
-        return httpClient;
     }
 
     /// <summary>
@@ -166,14 +105,14 @@ public partial class SwissPostcardCreatorApi
     private static async Task PccWebAuthorization(string codeChallenge, HttpClient httpClient)
     {
         // Prepare login data
-        var loginData = new SwissIdLogin
+        var loginData = new SwissIdLoginRecord
         {
-            ClientId = ClientId,
+            ClientId = SwissIdLoginHelper.ClientId,
             Lang = "en",
             Scope = "PCCWEB offline_access",
             State = "abcd",
             CodeChallenge = codeChallenge,
-            RedirectUri = RedirectUri,
+            RedirectUri = SwissIdLoginHelper.RedirectUri,
             ResponseMode = "query",
             ResponseType = "code",
             CodeChallengeMethod = "S256",
@@ -185,7 +124,7 @@ public partial class SwissPostcardCreatorApi
             RequestUri = new ($"https://pccweb.api.post.ch/OAuth/authorization?{ObjToQueryString(loginData)}"),
         };
 
-        var resPccWebResponseList = await FollowRedirect(
+        var resPccWebResponseList = await SwissIdLoginHelper.FollowRedirect(
             await httpClient.SendAsync(pccWebRequest), pccWebRequest, httpClient);
 
         if (resPccWebResponseList.Last().StatusCode != HttpStatusCode.OK) throw new("PccWebAuthorization failed");
@@ -203,7 +142,7 @@ public partial class SwissPostcardCreatorApi
             Method = HttpMethod.Post,
             RequestUri = new("https://account.post.ch/idp/?login" +
                              "&targetURL=https://pccweb.api.post.ch/SAML/ServiceProvider/" +
-                             $"?redirect_uri={RedirectUri}" +
+                             $"?redirect_uri={SwissIdLoginHelper.RedirectUri}" +
                              "&profile=default" +
                              "&app=pccwebapi" +
                              "&inMobileApp=true" +
@@ -213,7 +152,8 @@ public partial class SwissPostcardCreatorApi
                 new KeyValuePair<string, string>("externalIDP", "externalIDP")
             })
         };
-        var resAccountPostResponseList = await FollowRedirect(
+
+        var resAccountPostResponseList = await SwissIdLoginHelper.FollowRedirect(
             await httpClient.SendAsync(accountPostRequest), accountPostRequest, httpClient);
 
         // Get goto parameter
@@ -222,7 +162,7 @@ public partial class SwissPostcardCreatorApi
             .Select( x => x.Headers.Location?.Query)
             .Last(x => !string.IsNullOrEmpty(x) && x.Contains("goto=")) ?? throw new("No goto parameter found");
 
-        return GoToRegex().Match(gotoParameterFoundUri).Groups[1].Value.Split("&")[0];
+        return SwissIdLoginHelper.GoToRegex().Match(gotoParameterFoundUri).Groups[1].Value.Split("&")[0];
     }
 
     /// <summary>
@@ -241,7 +181,8 @@ public partial class SwissPostcardCreatorApi
             Method = HttpMethod.Get
         };
 
-        await FollowRedirect(await httpClient.SendAsync(swissLoginPart1Request), swissLoginPart1Request, httpClient);
+        await SwissIdLoginHelper.FollowRedirect(
+            await httpClient.SendAsync(swissLoginPart1Request), swissLoginPart1Request, httpClient);
     }
 
     /// <summary>
@@ -261,7 +202,7 @@ public partial class SwissPostcardCreatorApi
             Method = HttpMethod.Get
         };
 
-        await FollowRedirect(await httpClient.SendAsync(swissLoginPart2Request), swissLoginPart2Request, httpClient);
+        await SwissIdLoginHelper.FollowRedirect(await httpClient.SendAsync(swissLoginPart2Request), swissLoginPart2Request, httpClient);
     }
 
     /// <summary>
@@ -281,7 +222,7 @@ public partial class SwissPostcardCreatorApi
             Method = HttpMethod.Post
         };
 
-        var resSwissLoginPart3ResponseList = await FollowRedirect(
+        var resSwissLoginPart3ResponseList = await SwissIdLoginHelper.FollowRedirect(
             await httpClient.SendAsync(swissLoginPart3Request), swissLoginPart3Request, httpClient);
 
         // Swissid login part 4
@@ -312,7 +253,7 @@ public partial class SwissPostcardCreatorApi
                 new {username, password } )
         };
 
-        var resSwissLoginPart4ResponseList = await FollowRedirect(
+        var resSwissLoginPart4ResponseList = await SwissIdLoginHelper.FollowRedirect(
             await httpClient.SendAsync(swissLoginPart4Request), swissLoginPart4Request, httpClient);
 
         var content = await resSwissLoginPart4ResponseList.Last().Content.ReadAsStringAsync();
@@ -336,49 +277,12 @@ public partial class SwissPostcardCreatorApi
     {
         var serializedObject = JsonSerializer.Serialize(obj);
         var deserializeObject = JsonSerializer.Deserialize<IDictionary<string, string>>(serializedObject);
-        var encodedObject = deserializeObject?.Select(x => WebUtility.UrlEncode(x.Key) + "=" + WebUtility.UrlEncode(x.Value)) ?? throw new("Object couldn't be deserialized");
+        var encodedObject = deserializeObject
+            ?.Select(x =>
+                WebUtility.UrlEncode(x.Key) + "=" + WebUtility.UrlEncode(x.Value))
+                            ?? throw new("Object couldn't be deserialized");
 
         return string.Join("&", encodedObject);
-    }
-
-    /// <summary>
-    /// Follow a redirect chain until there are no future redirects
-    /// </summary>
-    /// <param name="responseMessage"></param>
-    /// <param name="requestMessage"></param>
-    /// <param name="httpClient"></param>
-    /// <returns></returns>
-    /// <exception cref="Exception"></exception>
-    private static async Task<IList<HttpResponseMessage>> FollowRedirect(
-        HttpResponseMessage responseMessage,
-        HttpRequestMessage requestMessage,
-        HttpClient httpClient)
-    {
-        var localRequestMessage = requestMessage;
-        var res = new List<HttpResponseMessage> {responseMessage};
-
-        while (responseMessage is {StatusCode: HttpStatusCode.Redirect})
-        {
-            var redirectUriReceived = responseMessage.Headers.Location;
-            if (redirectUriReceived != null && !redirectUriReceived.IsAbsoluteUri)
-            {
-                redirectUriReceived = new (localRequestMessage.RequestUri?.GetLeftPart(UriPartial.Authority) + redirectUriReceived);
-            }
-
-            localRequestMessage = new()
-            {
-                Content = localRequestMessage.Content,
-                Method = localRequestMessage.Method,
-                RequestUri = redirectUriReceived,
-                Version = localRequestMessage.Version,
-                VersionPolicy = localRequestMessage.VersionPolicy
-            };
-
-            responseMessage = await httpClient.SendAsync(localRequestMessage);
-            res.Add(responseMessage);
-        }
-
-        return res;
     }
 
     /// <summary>
@@ -407,7 +311,7 @@ public partial class SwissPostcardCreatorApi
                 Method = HttpMethod.Get
             };
 
-            var statusResponse = await FollowRedirect(
+            var statusResponse = await SwissIdLoginHelper.FollowRedirect(
                 await httpClient.SendAsync(statusRequest),
                 statusRequest, httpClient);
 
@@ -444,7 +348,7 @@ public partial class SwissPostcardCreatorApi
         {
             appCodeName = "Mozilla",
             appName = "Netscape",
-            appVersion = UserAgent.Replace("Mozilla/", ""),
+            appVersion = SwissIdLoginHelper.UserAgent.Replace("Mozilla/", ""),
             fonts = new Dictionary<string, string>()
             {
                 {"installedFonts", "cursive;monospace;serif;sans-serif;fantasy;default;" +
@@ -467,7 +371,7 @@ public partial class SwissPostcardCreatorApi
             {
                 {"timezone", -120},
             },
-            userAgent = UserAgent,
+            userAgent = SwissIdLoginHelper.UserAgent,
             vendor =  "Google Inc."
         };
 
@@ -501,12 +405,12 @@ public partial class SwissPostcardCreatorApi
             Method = HttpMethod.Get
         };
 
-        var resSwissLoginSamlResponseList = await FollowRedirect(
+        var resSwissLoginSamlResponseList = await SwissIdLoginHelper.FollowRedirect(
             await httpClient.SendAsync(swissLoginSamlRequest),
             swissLoginSamlRequest, httpClient);
 
         var contentToParse = await resSwissLoginSamlResponseList.Last().Content.ReadAsStringAsync();
-        var nextUrlSaml = FormUrlRegex().Match(contentToParse).Groups[1].Value;
+        var nextUrlSaml = SwissIdLoginHelper.FormUrlRegex().Match(contentToParse).Groups[1].Value;
         return Regex.Replace(nextUrlSaml, @"\s+", "");
     }
 
@@ -527,8 +431,8 @@ public partial class SwissPostcardCreatorApi
         var resSwissLoginSamlFinalResponse = await httpClient.SendAsync(resSwissLoginSamlFinalRequest);
 
         var contentFromSamlFinal = await resSwissLoginSamlFinalResponse.Content.ReadAsStringAsync();
-        var samlToken = SamlTokenRegex().Match(contentFromSamlFinal).Groups[1].Value;
-        var relayState = RelayStateRegex().Match(contentFromSamlFinal).Groups[1].Value;
+        var samlToken = SwissIdLoginHelper.SamlTokenRegex().Match(contentFromSamlFinal).Groups[1].Value;
+        var relayState = SwissIdLoginHelper.RelayStateRegex().Match(contentFromSamlFinal).Groups[1].Value;
 
         return new(samlToken, relayState);
     }
@@ -583,11 +487,11 @@ public partial class SwissPostcardCreatorApi
             Content = new FormUrlEncodedContent(new[]
             {
                 new KeyValuePair<string, string>("grant_type", "authorization_code"),
-                new KeyValuePair<string, string>("client_id", ClientId),
-                new KeyValuePair<string, string>("client_secret", ClientSecret),
+                new KeyValuePair<string, string>("client_id", SwissIdLoginHelper.ClientId),
+                new KeyValuePair<string, string>("client_secret", SwissIdLoginHelper.ClientSecret),
                 new KeyValuePair<string, string>("code", code),
                 new KeyValuePair<string, string>("code_verifier", codeVerifier),
-                new KeyValuePair<string, string>("redirect_uri", RedirectUri)
+                new KeyValuePair<string, string>("redirect_uri", SwissIdLoginHelper.RedirectUri)
             }),
             Method = HttpMethod.Post
         };
@@ -608,7 +512,7 @@ public partial class SwissPostcardCreatorApi
     /// <param name="refreshToken"></param>
     /// <returns></returns>
     /// <exception cref="Exception"></exception>
-    public static async Task<JsonObject> PccWebRefreshToken(string? refreshToken)
+    private static async Task<JsonObject> PccWebRefreshToken(string? refreshToken)
     {
         var postFinalStepRefreshRequest = new HttpRequestMessage
         {
@@ -616,8 +520,8 @@ public partial class SwissPostcardCreatorApi
             Content = new FormUrlEncodedContent(new[]
             {
                 new KeyValuePair<string, string?>("grant_type", "refresh_token"),
-                new KeyValuePair<string, string?>("client_id", ClientId),
-                new KeyValuePair<string, string?>("client_secret", ClientSecret),
+                new KeyValuePair<string, string?>("client_id", SwissIdLoginHelper.ClientId),
+                new KeyValuePair<string, string?>("client_secret", SwissIdLoginHelper.ClientSecret),
                 new KeyValuePair<string, string?>("refresh_token", refreshToken),
             }),
             Method = HttpMethod.Post
@@ -630,38 +534,5 @@ public partial class SwissPostcardCreatorApi
 
         return JsonSerializer.Deserialize<JsonObject>(
             await postFinalRefreshResponse.Content.ReadAsStringAsync()) ?? throw new("Token not found");
-    }
-
-    /// <summary>
-    /// Create random token with 64 bytes
-    /// </summary>
-    /// <returns></returns>
-    private static Tuple<string, string> CreateRandomToken()
-    {
-        var randomBytes = new byte[64];
-        using (var rng = RandomNumberGenerator.Create())
-        {
-            rng.GetBytes(randomBytes);
-        }
-
-        var randomString = UrlSafeBase64Encode(randomBytes);
-
-        byte[] hashBytes;
-        hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(randomString));
-
-        return new(randomString, UrlSafeBase64Encode(hashBytes));
-    }
-
-    /// <summary>
-    /// Get url safe base64 string
-    /// </summary>
-    /// <param name="bytes"></param>
-    /// <returns></returns>
-    private static string UrlSafeBase64Encode(byte[] bytes)
-    {
-        return Convert.ToBase64String(bytes)
-            .TrimEnd('=') // Remove padding
-            .Replace('+', '-')
-            .Replace('/', '_');
     }
 }

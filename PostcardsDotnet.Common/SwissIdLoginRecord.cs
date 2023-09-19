@@ -1,8 +1,11 @@
 using System.Text.Json.Serialization;
 
-namespace PostcardsDotnet;
+namespace PostcardDotnet.Common;
 
-public record SwissIdLogin
+/// <summary>
+/// SwissId login object
+/// </summary>
+public record SwissIdLoginRecord
 {
     [property: JsonPropertyName("client_id")]
     public required string ClientId { get; init; }

@@ -7,6 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\PostcardsDotnet.Services\PostcardsDotnet.Services.csproj" />
       <ProjectReference Include="..\PostcardsDotnet.Common\PostcardsDotnet.Common.csproj" />
     </ItemGroup>
 
