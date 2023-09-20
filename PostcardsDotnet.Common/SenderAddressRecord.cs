@@ -5,7 +5,7 @@ namespace PostcardDotnet.Common;
 /// <summary>
 /// Sender address
 /// </summary>
-public record SenderRecord : IAddress
+public record SenderAddressRecord : IAddress
 {
     /// <summary>
     /// <inheritdoc />

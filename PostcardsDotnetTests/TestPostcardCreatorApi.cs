@@ -33,4 +33,12 @@ public class Tests
         var image = ImageHelper.Scale(await File.ReadAllBytesAsync("Assets/sample.jpg"));
         await File.WriteAllBytesAsync("output.png", Convert.FromBase64String(image));
     }
+
+    [Test]
+    public async Task GetQuota()
+    {
+        var postcardCreatorApi = new SwissPostcardCreatorApi(new SwissIdLoginService());
+        await postcardCreatorApi.Login("", "");
+        var quota = await postcardCreatorApi.GetQuota();
+    }
 }
