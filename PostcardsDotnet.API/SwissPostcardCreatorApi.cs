@@ -51,4 +51,30 @@ public sealed class SwissPostcardCreatorApi
     {
         return _token?.ExpiresAt;
     }
+
+    /// <summary>
+    /// Set sender address
+    /// </summary>
+    public void SetSender()
+    {
+
+    }
+
+    /// <summary>
+    /// Set recipient address
+    /// </summary>
+    public void SetRecipient()
+    {
+
+    }
+
+    /// <summary>
+    /// Send postcard with image and optinal text
+    /// </summary>
+    /// <param name="image"></param>
+    /// <param name="message"></param>
+    public void SendPostcard(byte[] image, string? message)
+    {
+
+    }
 }

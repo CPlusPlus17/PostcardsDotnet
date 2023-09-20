@@ -11,11 +11,17 @@ namespace PostcardDotnet.Services;
 
 public sealed class SwissIdLoginService : ITokenService
 {
+    /// <summary>
+    /// <inheritdoc />
+    /// </summary>
     public async Task<IToken> GetToken(string username, string password)
     {
         return await LoginSwissId(username, password);
     }
 
+    /// <summary>
+    /// <inheritdoc />
+    /// </summary>
     public async Task<IToken> RefreshToken()
     {
         throw new NotImplementedException();

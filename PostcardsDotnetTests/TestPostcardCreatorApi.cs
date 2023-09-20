@@ -1,3 +1,4 @@
+using PostcardDotnet.Common;
 using PostcardDotnet.Services;
 using PostcardsDotnet.API;
 
@@ -24,5 +25,12 @@ public class Tests
         var postcardCreatorApi = new SwissPostcardCreatorApi(new SwissIdLoginService());
         await postcardCreatorApi.Login("", "");
         await postcardCreatorApi.RefreshToken();
+    }
+
+    [Test]
+    public async Task ScaleImage()
+    {
+        var image = ImageHelper.Scale(await File.ReadAllBytesAsync("Assets/sample.jpg"));
+        await File.WriteAllBytesAsync("output.png", Convert.FromBase64String(image));
     }
 }

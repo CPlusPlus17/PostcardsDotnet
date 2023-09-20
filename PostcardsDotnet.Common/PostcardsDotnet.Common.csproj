@@ -11,4 +11,8 @@
       <ProjectReference Include="..\PostcardsDotnet.Contracts\PostcardsDotnet.Contracts.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="Magick.NET-Q16-HDRI-AnyCPU" Version="13.2.0" />
+    </ItemGroup>
+
 </Project>

@@ -5,6 +5,9 @@ using System.Net;
 
 namespace PostcardDotnet.Common;
 
+/// <summary>
+/// Helper for getting a valid swiss id token to use
+/// </summary>
 public static partial class SwissIdLoginHelper
 {
     /// <summary>
