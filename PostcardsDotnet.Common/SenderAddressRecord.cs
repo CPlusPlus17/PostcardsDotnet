@@ -35,5 +35,5 @@ public record SenderAddressRecord : IAddress
     /// <summary>
     /// <inheritdoc />
     /// </summary>
-    public required string Company { get; init; }
+    public string? Company { get; init; }
 }

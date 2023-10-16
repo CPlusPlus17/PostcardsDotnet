@@ -61,7 +61,7 @@ public sealed class SwissPostcardCreatorApi
     public async Task RefreshToken()
     {
         if (_token is null) throw new("No valid token, can't refresh");
-        _token = await _tokenService.RefreshToken();
+        _token = await _tokenService.RefreshToken(_token.RefreshToken);
         _postcardsCreatorApi.SetAccessToken(_token.AccessToken);
     }
 
@@ -99,6 +99,7 @@ public sealed class SwissPostcardCreatorApi
     /// <param name="message"></param>
     public async void SendPostcard(byte[] image, string? message)
     {
+        await _postcardsCreatorApi.CardUpload(_recipientAddress, _senderAddress, ImageHelper.ScaleAndConvertToBase64(image), message);
         throw new NotImplementedException();
     }
 
@@ -115,18 +116,18 @@ public sealed class SwissPostcardCreatorApi
     /// Get logged-in user information
     /// </summary>
     /// <exception cref="NotImplementedException"></exception>
-    public async Task GetUserInformation()
+    public async Task<PostcardCreatorUser> GetUserInformation()
     {
-        throw new NotImplementedException();
+        return await _postcardsCreatorApi.UserCurrent();
     }
 
     /// <summary>
     /// Get account balance from logged-in user
     /// </summary>
     /// <exception cref="NotImplementedException"></exception>
-    public async Task GetAccountBalance()
+    public async Task<PostcardCreatorBalance> GetAccountBalance()
     {
-        throw new NotImplementedException();
+        return await _postcardsCreatorApi.BillingAccountBalance();
     }
 
     /// <summary>
@@ -136,7 +137,7 @@ public sealed class SwissPostcardCreatorApi
     /// <exception cref="NotImplementedException"></exception>
     public async Task<bool> FreeCardAvailable()
     {
-        throw new NotImplementedException();
+        return (await _postcardsCreatorApi.UserQuota()).Available;
     }
 
     /// <summary>
@@ -144,8 +145,8 @@ public sealed class SwissPostcardCreatorApi
     /// </summary>
     /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
-    public async Task<DateTimeOffset> NextFreeCardAvailableAt()
+    public async Task<DateTimeOffset?> NextFreeCardAvailableAt()
     {
-        throw new NotImplementedException();
+        return (await _postcardsCreatorApi.UserQuota()).NextDate;
     }
 }

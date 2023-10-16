@@ -23,7 +23,7 @@ public static class ImageHelper
     /// </summary>
     /// <param name="data"></param>
     /// <returns></returns>
-    public static string Scale(byte[] data)
+    public static string ScaleAndConvertToBase64(byte[] data)
     {
         // Create magick image
         var image = new MagickImage(data);

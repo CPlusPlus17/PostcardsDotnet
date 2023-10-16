@@ -40,15 +40,15 @@ public class RecipientAddressRecord : IAddress
     /// <summary>
     /// <inheritdoc />
     /// </summary>
-    public required string Company { get; init; }
+    public string? Company { get; init; }
 
     /// <summary>
     /// Company addon
     /// </summary>
-    public required string CompanyAddon { get; init; }
+    public string? CompanyAddon { get; init; }
 
     /// <summary>
     /// Title
     /// </summary>
-    public required string Title { get; init; }
+    public string? Title { get; init; }
 }

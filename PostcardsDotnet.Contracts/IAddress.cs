@@ -33,5 +33,5 @@ public interface IAddress
     /// <summary>
     ///  Company
     /// </summary>
-    public string Company { get; init; }
+    public string? Company { get; init; }
 }

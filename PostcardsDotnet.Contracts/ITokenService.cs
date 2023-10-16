@@ -17,5 +17,5 @@ public interface ITokenService
     /// Refresh token with a before received token
     /// </summary>
     /// <returns></returns>
-    public Task<IToken> RefreshToken();
+    public Task<IToken> RefreshToken(string refreshToken);
 }

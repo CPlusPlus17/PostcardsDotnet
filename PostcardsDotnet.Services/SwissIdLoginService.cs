@@ -9,7 +9,7 @@ using PostcardDotnet.Contracts;
 
 namespace PostcardDotnet.Services;
 
-public sealed class SwissIdLoginService : ITokenService
+public sealed partial class SwissIdLoginService : ITokenService
 {
     /// <summary>
     /// <inheritdoc />
@@ -22,9 +22,10 @@ public sealed class SwissIdLoginService : ITokenService
     /// <summary>
     /// <inheritdoc />
     /// </summary>
-    public async Task<IToken> RefreshToken()
+    public async Task<IToken> RefreshToken(string refreshToken)
     {
-        throw new NotImplementedException();
+        var tokenObject = await PccWebRefreshToken(refreshToken);
+        return SetToken(tokenObject);
     }
 
     /// <summary>
@@ -89,17 +90,7 @@ public sealed class SwissIdLoginService : ITokenService
         // PccWeb token - getting access and refresh token
         var tokenObject = await PccWebToken(code, codeVerifier);
 
-        return new SwissIdTokenRecord()
-        {
-            AccessToken = tokenObject["access_token"]?.AsValue().ToString()
-                          ?? throw new("Missing access token attribute"),
-            RefreshToken = tokenObject["refresh_token"]?.AsValue().ToString()
-                           ?? throw new("Missing refresh token attribute"),
-            ExpiresInSeconds = tokenObject["expires_in"]?.AsValue().GetValue<int>()
-                               ?? throw new("Missing expires in attribute"),
-            ExpiresAt = DateTimeOffset.Now.AddSeconds(tokenObject["expires_in"]?.AsValue().GetValue<double?>()
-                                                      ?? throw new("Can't calculate expires at"))
-        };
+        return SetToken(tokenObject);
     }
 
     /// <summary>
@@ -232,9 +223,8 @@ public sealed class SwissIdLoginService : ITokenService
             await httpClient.SendAsync(swissLoginPart3Request), swissLoginPart3Request, httpClient);
 
         // Swissid login part 4
-        return JsonSerializer.Deserialize<JsonObject>
-            (await resSwissLoginPart3ResponseList.Last()
-                .Content.ReadAsStringAsync())?["tokens"]?["authId"]?.AsValue().ToString() ?? throw new("Missing authId");
+        return (await resSwissLoginPart3ResponseList.Last()
+                .Content.ReadFromJsonAsync<JsonObject>())?["tokens"]?["authId"]?.AsValue().ToString() ?? throw new("Missing authId");
 
     }
 
@@ -262,12 +252,10 @@ public sealed class SwissIdLoginService : ITokenService
         var resSwissLoginPart4ResponseList = await SwissIdLoginHelper.FollowRedirect(
             await httpClient.SendAsync(swissLoginPart4Request), swissLoginPart4Request, httpClient);
 
-        var content = await resSwissLoginPart4ResponseList.Last().Content.ReadAsStringAsync();
-        var nextAction = JsonSerializer
-            .Deserialize<JsonObject>(content)?["nextAction"]?["type"]?.AsValue().ToString()
+        var content = await resSwissLoginPart4ResponseList.Last().Content.ReadFromJsonAsync<JsonObject>();
+        var nextAction = content?["nextAction"]?["type"]?.AsValue().ToString()
                ?? throw new ("Next action type not found");
-        var authIdNex = JsonSerializer
-                            .Deserialize<JsonObject>(content)?["tokens"]?["authId"]?.AsValue().ToString()
+        var authIdNex = content["tokens"]?["authId"]?.AsValue().ToString() 
                         ?? throw new ("AuthId not found");
 
         return new(nextAction, authIdNex);
@@ -321,14 +309,12 @@ public sealed class SwissIdLoginService : ITokenService
                 await httpClient.SendAsync(statusRequest),
                 statusRequest, httpClient);
 
-            var content = await statusResponse.Last().Content.ReadAsStringAsync();
+            var content = await statusResponse.Last().Content.ReadFromJsonAsync<JsonObject>();
 
-            authId = JsonSerializer
-                         .Deserialize<JsonObject>(content)?["tokens"]?["authId"]?.AsValue().ToString()
+            authId = content?["tokens"]?["authId"]?.AsValue().ToString()
                      ?? throw new("Missing authId");
 
-            nextActionType = JsonSerializer
-                                 .Deserialize<JsonObject>(content)?["nextAction"]?["type"]?.AsValue().ToString()
+            nextActionType = content["nextAction"]?["type"]?.AsValue().ToString()
                              ?? throw new ("Next action type not found");
 
             await Task.Delay(3000);
@@ -391,9 +377,7 @@ public sealed class SwissIdLoginService : ITokenService
 
         var resSwissLoginAnomalyResponse = await httpClient.SendAsync(swissLoginAnomalyDetectionRequest);
 
-        return JsonSerializer
-            .Deserialize<JsonObject>(
-                await resSwissLoginAnomalyResponse.Content.ReadAsStringAsync())?["nextAction"]?["successUrl"]
+        return (await resSwissLoginAnomalyResponse.Content.ReadFromJsonAsync<JsonObject>())?["nextAction"]?["successUrl"]
             ?.AsValue().ToString() ?? throw new("SuccessUrl not found");
     }
 
@@ -417,7 +401,7 @@ public sealed class SwissIdLoginService : ITokenService
 
         var contentToParse = await resSwissLoginSamlResponseList.Last().Content.ReadAsStringAsync();
         var nextUrlSaml = SwissIdLoginHelper.FormUrlRegex().Match(contentToParse).Groups[1].Value;
-        return Regex.Replace(nextUrlSaml, @"\s+", "");
+        return SamlCleanRegex().Replace(nextUrlSaml, "");
     }
 
     /// <summary>
@@ -507,9 +491,9 @@ public sealed class SwissIdLoginService : ITokenService
         {
             AllowAutoRedirect = false,
         }).SendAsync(postFinalStepRequest);
-        var finalContent = await postFinalResponse.Content.ReadAsStringAsync();
+        var finalContent = await postFinalResponse.Content.ReadFromJsonAsync<JsonObject>();
 
-        return JsonSerializer.Deserialize<JsonObject>(finalContent) ?? throw new("Token not found");
+        return finalContent ?? throw new("Token not found");
     }
 
     /// <summary>
@@ -538,7 +522,33 @@ public sealed class SwissIdLoginService : ITokenService
             AllowAutoRedirect = false,
         }).SendAsync(postFinalStepRefreshRequest);
 
-        return JsonSerializer.Deserialize<JsonObject>(
-            await postFinalRefreshResponse.Content.ReadAsStringAsync()) ?? throw new("Token not found");
+        return await postFinalRefreshResponse.Content.ReadFromJsonAsync<JsonObject>() ?? throw new("Token not found");
     }
+
+    /// <summary>
+    /// Set token from json
+    /// </summary>
+    /// <returns></returns>
+    /// <exception cref="Exception"></exception>
+    private static IToken SetToken(JsonObject tokenObject)
+    {
+        return new SwissIdTokenRecord()
+        {
+            AccessToken = tokenObject["access_token"]?.AsValue().ToString()
+                          ?? throw new("Missing access token attribute"),
+            RefreshToken = tokenObject["refresh_token"]?.AsValue().ToString()
+                           ?? throw new("Missing refresh token attribute"),
+            ExpiresInSeconds = tokenObject["expires_in"]?.AsValue().GetValue<int>()
+                               ?? throw new("Missing expires in attribute"),
+            ExpiresAt = DateTimeOffset.Now.AddSeconds(tokenObject["expires_in"]?.AsValue().GetValue<double?>()
+                                                      ?? throw new("Can't calculate expires at"))
+        };
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <returns></returns>
+    [GeneratedRegex("\\s+")]
+    private static partial Regex SamlCleanRegex();
 }
