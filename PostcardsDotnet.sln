@@ -12,6 +12,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostcardsDotnet.Services", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostcardsDotnet.Data.PostcardsCreator", "PostcardsDotnet.Data.PostcardsCreator\PostcardsDotnet.Data.PostcardsCreator.csproj", "{F4A89C2C-78C7-4D8C-A7BF-045FE55B51C2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostcardsDotnet.PluginBase", "PostcardsDotnet.PluginBase\PostcardsDotnet.PluginBase.csproj", "{851269F0-4122-4DA5-A69E-49C8A2B12EC5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostcardsDotnet.Cli", "PostcardsDotnet.Cli\PostcardsDotnet.Cli.csproj", "{E33A7609-7C7B-4641-9819-5D7E858D0041}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostcardsDotnet.PluginGooglePhotos", "PostcardsDotnet.PluginGooglePhotos\PostcardsDotnet.PluginGooglePhotos.csproj", "{42B5F2EB-EAB5-4EBC-B1A4-A78A9F449F87}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,5 +48,17 @@ Global
 		{F4A89C2C-78C7-4D8C-A7BF-045FE55B51C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F4A89C2C-78C7-4D8C-A7BF-045FE55B51C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F4A89C2C-78C7-4D8C-A7BF-045FE55B51C2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{851269F0-4122-4DA5-A69E-49C8A2B12EC5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{851269F0-4122-4DA5-A69E-49C8A2B12EC5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{851269F0-4122-4DA5-A69E-49C8A2B12EC5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{851269F0-4122-4DA5-A69E-49C8A2B12EC5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E33A7609-7C7B-4641-9819-5D7E858D0041}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E33A7609-7C7B-4641-9819-5D7E858D0041}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E33A7609-7C7B-4641-9819-5D7E858D0041}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E33A7609-7C7B-4641-9819-5D7E858D0041}.Release|Any CPU.Build.0 = Release|Any CPU
+		{42B5F2EB-EAB5-4EBC-B1A4-A78A9F449F87}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{42B5F2EB-EAB5-4EBC-B1A4-A78A9F449F87}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{42B5F2EB-EAB5-4EBC-B1A4-A78A9F449F87}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{42B5F2EB-EAB5-4EBC-B1A4-A78A9F449F87}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
