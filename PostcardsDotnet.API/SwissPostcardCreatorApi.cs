@@ -97,10 +97,9 @@ public sealed class SwissPostcardCreatorApi
     /// </summary>
     /// <param name="image"></param>
     /// <param name="message"></param>
-    public async void SendPostcard(byte[] image, string? message)
+    public async Task<bool> SendPostcard(byte[] image, string? message = null)
     {
-        await _postcardsCreatorApi.CardUpload(_recipientAddress, _senderAddress, ImageHelper.ScaleAndConvertToBase64(image), message);
-        throw new NotImplementedException();
+        return await _postcardsCreatorApi.CardUpload(_recipientAddress, _senderAddress, ImageHelper.ScaleAndConvertToBase64(image), message);
     }
 
     /// <summary>

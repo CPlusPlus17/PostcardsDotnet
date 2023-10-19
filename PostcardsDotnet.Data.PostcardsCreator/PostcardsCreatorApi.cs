@@ -85,11 +85,11 @@ public sealed class PostcardsCreatorApi
     /// <summary>
     /// Upload a card aka send
     /// </summary>
-    public async Task CardUpload(RecipientAddressRecord? recipient, SenderAddressRecord? sender, string imageBase64,
+    public async Task<bool> CardUpload(RecipientAddressRecord? recipient, SenderAddressRecord? sender, string imageBase64,
         string? message)
     {
         if(recipient is null || sender is null || string.IsNullOrEmpty(imageBase64)) throw new("Invalid recipient, sender or image");
-        
+
         var res = await _httpClient.PostAsJsonAsync<object>("card/upload", JsonSerializer.Serialize(
                       new PostcardCreatorCardUpload
                       {
@@ -101,7 +101,8 @@ public sealed class PostcardsCreatorApi
                           Image = imageBase64,
                           Stamp = null,
                           TextImage = null
-                      }))
-                  ?? throw new("Invalid response");
+                      }));
+
+        return res.IsSuccessStatusCode; // Todo: Add logging
     }
 }
